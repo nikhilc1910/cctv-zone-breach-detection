@@ -1,7 +1,7 @@
 import React from 'react';
 import { useLiveDashboard } from '../context/LiveDashboardContext';
 
-export const TopRibbon: React.FC = () => {
+export const TopRibbon: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
   const { machines, alerts, isConnected } = useLiveDashboard();
 
   const total = machines.length;
@@ -26,6 +26,36 @@ export const TopRibbon: React.FC = () => {
     >
       {/* Left: Project Brand with Connection State */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        {onBack && (
+          <button
+            onClick={onBack}
+            style={{
+              background: 'none',
+              color: '#52524e',
+              cursor: 'pointer',
+              fontSize: '11px',
+              fontWeight: 600,
+              textTransform: 'uppercase',
+              letterSpacing: '1px',
+              marginRight: '12px',
+              padding: '4px 8px',
+              border: '1px solid #1f1f1f',
+              borderRadius: '4px',
+              display: 'inline-flex',
+              alignItems: 'center',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = '#e8e8e2';
+              e.currentTarget.style.borderColor = '#3b82f6';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = '#52524e';
+              e.currentTarget.style.borderColor = '#1f1f1f';
+            }}
+          >
+            &lt; BACK
+          </button>
+        )}
         <div
           style={{
             width: '6px',

@@ -7,19 +7,23 @@ export default {
   theme: {
     extend: {
       colors: {
-        industrial: {
-          bg: '#0b0f19',       // Deep rich charcoal-blue background
-          card: '#131c2e',     // Dark slate card
-          border: '#242f4c',   // Tech steel border
-          blue: '#1e5cc8',     // Electric blue
-          success: '#10b981',  // Emerald running status
-          warning: '#f59e0b',  // Amber warnings
-          danger: '#ef4444',   // Red downtime alert
-          purple: '#8b5cf6',   // Purple maintenance mode
-          textMuted: '#94a3b8' // Gray text
-        }
-      }
+        bg: "hsl(var(--bg))",
+        surface: "hsl(var(--surface))",
+        "text-primary": "hsl(var(--text))",
+        muted: "hsl(var(--muted))",
+        stroke: "hsl(var(--stroke))",
+        running: "hsl(var(--running))",
+        down: "hsl(var(--down))",
+        idle: "hsl(var(--idle))",
+        maintenance: "hsl(var(--maintenance))",
+      },
+      fontFamily: {
+        mono: ["var(--font-body)", "monospace"],
+        display: ["var(--font-display)", "serif"],
+      },
     },
   },
-  plugins: [],
+  plugins: [
+    require("tailwindcss-animate")
+  ],
 }
