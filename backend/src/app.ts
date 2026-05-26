@@ -3,17 +3,24 @@ import http from 'http';
 import cors from 'cors';
 import { config } from './config';
 import { logger } from './utils/logger';
-import { connectRedis } from './utils/redis';
+import { connectRedis, redisClient } from './utils/redis';
 import { setupWebsockets } from './gateways/websocket';
 import { startMqttIngestion } from './services/ingestion';
-import { startHeartbeatMonitor } from './services/timeout';
+import { startHeartbeatMonitor, stopHeartbeatMonitor } from './services/timeout';
+import { stopTelemetryBatcher } from './services/processor';
 import apiRouter from './controllers/api';
 
 const app = express();
 const server = http.createServer(app);
 
 // Middlewares
-app.use(cors());
+app.use(cors({
+  origin: config.nodeEnv === 'production'
+    ? (process.env.ALLOWED_ORIGIN || 'http://localhost:3000')
+    : '*',
+  methods: ['GET', 'POST'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
 app.use(express.json());
 
 // Logging middleware for HTTP requests
@@ -64,3 +71,18 @@ async function bootstrap() {
 }
 
 bootstrap();
+
+process.on('SIGTERM', async () => {
+  logger.info('SIGTERM received — initiating graceful shutdown...');
+  stopTelemetryBatcher();
+  stopHeartbeatMonitor();
+  try {
+    await redisClient.quit();
+  } catch (err) {
+    logger.error('Error closing Redis client:', err);
+  }
+  server.close(() => {
+    logger.info('HTTP server closed. Exiting.');
+    process.exit(0);
+  });
+});

@@ -3,6 +3,7 @@ import { Server as HttpServer } from 'http';
 import { logger } from '../utils/logger';
 import { socketService } from '../services/socket';
 import { getAllMachineKeys, getLatestMachineState } from '../utils/redis';
+import { config } from '../config';
 
 /**
  * Bootstraps Socket.IO and configures client messaging pipelines.
@@ -10,7 +11,9 @@ import { getAllMachineKeys, getLatestMachineState } from '../utils/redis';
 export function setupWebsockets(server: HttpServer) {
   const io = new Server(server, {
     cors: {
-      origin: '*', // Allow all client connections in sandbox
+      origin: config.nodeEnv === 'production'
+        ? (process.env.ALLOWED_ORIGIN || 'http://localhost:3000')
+        : '*',
       methods: ['GET', 'POST']
     }
   });
