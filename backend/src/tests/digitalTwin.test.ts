@@ -1,4 +1,4 @@
-import { handleTelemetryMsg, checkAndTriggerAlert } from '../services/processor';
+import { handleTelemetryMsg, checkAndTriggerAlert, stopTelemetryBatcher } from '../services/processor';
 import { checkConnectivityHeartbeats } from '../services/timeout';
 import { prisma } from '../utils/db';
 import { getLatestMachineState, setLatestMachineState } from '../utils/redis';
@@ -31,21 +31,33 @@ jest.mock('../utils/db', () => {
   };
 });
 
+let mockRedisStore: Record<string, string> = {};
+
 // Mock Redis memory store cache in a local object store mapping
 jest.mock('../utils/redis', () => {
-  const store: Record<string, string> = {};
   return {
     connectRedis: jest.fn().mockResolvedValue({}),
     getLatestMachineState: jest.fn().mockImplementation((machineId) => {
-      const val = store[`machine:${machineId}:state`];
+      const val = mockRedisStore[`machine:${machineId}:state`];
       return Promise.resolve(val ? JSON.parse(val) : null);
     }),
     setLatestMachineState: jest.fn().mockImplementation((machineId, state) => {
-      store[`machine:${machineId}:state`] = JSON.stringify(state);
+      mockRedisStore[`machine:${machineId}:state`] = JSON.stringify(state);
       return Promise.resolve();
     }),
     getAllMachineKeys: jest.fn().mockImplementation(() => {
-      return Promise.resolve(Object.keys(store));
+      return Promise.resolve(Object.keys(mockRedisStore));
+    }),
+    getActiveAlertCache: jest.fn().mockImplementation((machineId, alertType) => {
+      return Promise.resolve(mockRedisStore[`active_alert:${machineId}:${alertType}`] || null);
+    }),
+    setActiveAlertCache: jest.fn().mockImplementation((machineId, alertType, alertId) => {
+      mockRedisStore[`active_alert:${machineId}:${alertType}`] = alertId;
+      return Promise.resolve();
+    }),
+    deleteActiveAlertCache: jest.fn().mockImplementation((machineId, alertType) => {
+      delete mockRedisStore[`active_alert:${machineId}:${alertType}`];
+      return Promise.resolve();
     })
   };
 });
@@ -63,7 +75,12 @@ jest.mock('../services/socket', () => {
 
 describe('Digital Twin Observability System Tests', () => {
   beforeEach(() => {
-    jest.clearMocks();
+    jest.clearAllMocks();
+    mockRedisStore = {};
+  });
+
+  afterAll(() => {
+    stopTelemetryBatcher();
   });
 
   describe('1. Unit Test: Alert Threshold Logic', () => {

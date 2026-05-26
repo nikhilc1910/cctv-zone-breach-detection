@@ -123,13 +123,20 @@ export const LiveDashboardProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     if (!socket) return;
     
-    // Subscribe to line channel
-    if (selectedLine !== 'ALL') {
+    if (selectedLine === 'ALL') {
+      socket.emit('join:line', { lineId: 'line_1' });
+      socket.emit('join:line', { lineId: 'line_2' });
+      socket.emit('join:line', { lineId: 'line_3' });
+    } else {
       socket.emit('join:line', { lineId: selectedLine });
     }
 
     return () => {
-      if (selectedLine !== 'ALL') {
+      if (selectedLine === 'ALL') {
+        socket.emit('leave:line', { lineId: 'line_1' });
+        socket.emit('leave:line', { lineId: 'line_2' });
+        socket.emit('leave:line', { lineId: 'line_3' });
+      } else {
         socket.emit('leave:line', { lineId: selectedLine });
       }
     };

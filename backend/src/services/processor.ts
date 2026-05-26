@@ -1,5 +1,5 @@
 import { prisma } from '../utils/db';
-import { setLatestMachineState, getLatestMachineState } from '../utils/redis';
+import { setLatestMachineState, getLatestMachineState, getActiveAlertCache, setActiveAlertCache, deleteActiveAlertCache } from '../utils/redis';
 import { config } from '../config';
 import { logger } from '../utils/logger';
 import { socketService } from './socket';
@@ -17,7 +17,7 @@ let telemetryBuffer: {
 const BATCH_INTERVAL_MS = 5000;
 
 // Periodic job to commit buffered telemetry in bulk to PostgreSQL
-setInterval(async () => {
+let batchIntervalId: NodeJS.Timeout | null = setInterval(async () => {
   if (telemetryBuffer.length === 0) return;
   
   const batch = [...telemetryBuffer];
@@ -35,6 +35,13 @@ setInterval(async () => {
     telemetryBuffer = [...batch, ...telemetryBuffer];
   }
 }, BATCH_INTERVAL_MS);
+
+export function stopTelemetryBatcher() {
+  if (batchIntervalId) {
+    clearInterval(batchIntervalId);
+    batchIntervalId = null;
+  }
+}
 
 /**
  * Handles verified machine sensor telemetry packets.
@@ -256,14 +263,27 @@ export async function checkAndTriggerAlert(
   timestamp: Date,
   isViolating: boolean
 ) {
-  // Check if an active alert of the same type is already stored
-  const activeAlert = await prisma.alert.findFirst({
-    where: {
-      machineId,
-      alertType,
-      status: 'ACTIVE'
+  // 1. Check Redis first to avoid DB query overhead
+  let activeAlertId = await getActiveAlertCache(machineId, alertType);
+  let activeAlert = null;
+
+  if (activeAlertId) {
+    activeAlert = { id: activeAlertId };
+  } else {
+    // Cache miss, check PostgreSQL database
+    const dbAlert = await prisma.alert.findFirst({
+      where: {
+        machineId,
+        alertType,
+        status: 'ACTIVE'
+      }
+    });
+    if (dbAlert) {
+      activeAlert = dbAlert;
+      // Seed Redis cache
+      await setActiveAlertCache(machineId, alertType, dbAlert.id);
     }
-  });
+  }
 
   if (!isViolating) {
     // If the violation has ceased, automatically resolve the existing active alert
@@ -275,6 +295,9 @@ export async function checkAndTriggerAlert(
           resolvedAt: new Date()
         }
       });
+      // Clear from Redis cache
+      await deleteActiveAlertCache(machineId, alertType);
+
       logger.info(`Alert ${activeAlert.id} auto-resolved for machine ${machineId} (${alertType})`);
       socketService.emitToRoom('alerts', 'alert:update', resolvedAlert);
     }
@@ -301,6 +324,9 @@ export async function checkAndTriggerAlert(
       timestamp
     }
   });
+
+  // Store in Redis cache
+  await setActiveAlertCache(machineId, alertType, newAlert.id);
 
   logger.warn(`New Threshold Alert triggered on ${machineId}: ${newAlert.message}`);
   

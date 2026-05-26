@@ -3,6 +3,7 @@ import { prisma } from '../utils/db';
 import { logger } from '../utils/logger';
 import { socketService } from '../services/socket';
 import { handleCameraEventMsg } from '../services/processor';
+import { deleteActiveAlertCache } from '../utils/redis';
 
 const router = Router();
 
@@ -116,6 +117,10 @@ router.post('/alerts/:id/acknowledge', async (req: Request, res: Response) => {
       }
     });
 
+    if (alert.machineId && alert.alertType) {
+      await deleteActiveAlertCache(alert.machineId, alert.alertType);
+    }
+
     logger.info(`Alert ${id} acknowledged by operator: ${operatorId || 'system'}`);
     socketService.emitToRoom('alerts', 'alert:update', alert);
     res.json(alert);
@@ -145,6 +150,10 @@ router.post('/alerts/:id/resolve', async (req: Request, res: Response) => {
         cameraEvent: true
       }
     });
+
+    if (alert.machineId && alert.alertType) {
+      await deleteActiveAlertCache(alert.machineId, alert.alertType);
+    }
 
     logger.info(`Alert ${id} resolved by operator: ${operatorId || 'system'}`);
     socketService.emitToRoom('alerts', 'alert:update', alert);
@@ -180,6 +189,25 @@ router.post('/machines/:id/downtime', async (req: Request, res: Response) => {
     res.json(updatedEvent);
   } catch (error: any) {
     logger.error(`API Downtime Reason Log Failed: ${error.message}`);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
+/**
+ * GET /api/machines/:id/downtime
+ * Fetches recent downtime events for a specific machine.
+ */
+router.get('/machines/:id/downtime', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const events = await prisma.downtimeEvent.findMany({
+      where: { machineId: id },
+      orderBy: { startTime: 'desc' },
+      take: 10
+    });
+    res.json(events);
+  } catch (error: any) {
+    logger.error(`API Fetch Machine Downtime Failed: ${error.message}`);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });

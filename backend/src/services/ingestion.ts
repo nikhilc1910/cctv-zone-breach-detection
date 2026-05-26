@@ -45,7 +45,7 @@ export function startMqttIngestion() {
     // Subscribe with QoS 1 for sensor telemetry (At-least-once delivery)
     client.subscribe('factory/line/+/machine/+/telemetry', { qos: 1 }, (err) => {
       if (err) {
-        logger.error('Subscription error for telemetry:', err);
+        logger.error(err, 'Subscription error for telemetry');
       } else {
         logger.info('Subscribed to telemetry wildcard topic: factory/line/+/machine/+/telemetry [QoS 1]');
       }
@@ -54,7 +54,7 @@ export function startMqttIngestion() {
     // Subscribe with QoS 2 for safety CCTV alerts (Exactly-once delivery)
     client.subscribe('factory/camera/+/event', { qos: 2 }, (err) => {
       if (err) {
-        logger.error('Subscription error for camera events:', err);
+        logger.error(err, 'Subscription error for camera events');
       } else {
         logger.info('Subscribed to camera events wildcard topic: factory/camera/+/event [QoS 2]');
       }
@@ -96,7 +96,7 @@ export function startMqttIngestion() {
   });
 
   client.on('error', (err) => {
-    logger.error('MQTT Broker Connection Error:', err);
+    logger.error(err, 'MQTT Broker Connection Error');
   });
 
   client.on('offline', () => {

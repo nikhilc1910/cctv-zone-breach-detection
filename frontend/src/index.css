@@ -1,68 +1,113 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap');
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
 
 body {
-  margin: 0;
-  background-color: #0b0f19;
-  color: #f8fafc;
-  font-family: 'Outfit', 'Inter', system-ui, -apple-system, sans-serif;
-  overflow-x: hidden;
-  background-image: radial-gradient(circle at 10% 20%, rgba(30, 92, 200, 0.1) 0%, transparent 40%),
-                    radial-gradient(circle at 90% 80%, rgba(139, 92, 246, 0.08) 0%, transparent 45%);
-  background-attachment: fixed;
+  background: #0a0a0a;
+  color: #e8e8e2;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 13px;
+  overflow: hidden;
+  line-height: 1.2;
 }
 
-/* Glassmorphism panels */
-.glass-panel {
-  background: rgba(19, 28, 46, 0.55);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(36, 47, 76, 0.5);
-}
-
-.glass-panel-hover {
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.glass-panel-hover:hover {
-  background: rgba(19, 28, 46, 0.8);
-  border-color: rgba(30, 92, 200, 0.5);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
-  transform: translateY(-2px);
-}
-
-/* Custom scrollbars */
+/* Custom scrollbar — thin, dark */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 4px;
+  height: 4px;
 }
-
 ::-webkit-scrollbar-track {
-  background: #0b0f19;
+  background: #0a0a0a;
 }
-
 ::-webkit-scrollbar-thumb {
-  background: #242f4c;
-  border-radius: 3px;
+  background: #1f1f1f;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: #3b82f6;
+/* Scan line keyframe */
+@keyframes scanline {
+  0%   { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
 }
 
-/* Flashing animations */
-@keyframes alert-pulse {
-  0%, 100% {
-    opacity: 1;
-    box-shadow: 0 0 12px rgba(239, 68, 68, 0.6);
-  }
-  50% {
-    opacity: 0.5;
-    box-shadow: 0 0 4px rgba(239, 68, 68, 0.2);
-  }
+/* Pulse ring keyframe */
+@keyframes pulse-ring {
+  0%   { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+  100% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
 }
 
-.animate-alert-pulse {
-  animation: alert-pulse 1.5s infinite;
+/* Alert slide-in */
+@keyframes slideInRight {
+  from { transform: translateX(20px); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+/* Value flash */
+@keyframes valueFlash {
+  0%   { color: var(--flash-color, #e8e8e2); }
+  30%  { color: var(--flash-color, #e8e8e2); }
+  100% { color: #e8e8e2; }
+}
+
+/* Blinking cursor keyframe */
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+/* Animation Classes */
+.pulse-down {
+  animation: pulse-ring 2s infinite;
+}
+
+.scan-line-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.scan-line-container::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(
+    to bottom,
+    rgba(232, 232, 226, 0) 0%,
+    rgba(232, 232, 226, 0.03) 50%,
+    rgba(232, 232, 226, 0) 100%
+  );
+  animation: scanline 8s linear infinite;
+  pointer-events: none;
+}
+
+.animate-slide-in {
+  animation: slideInRight 200ms ease-out forwards;
+}
+
+.flash-active {
+  animation: valueFlash 400ms ease-out;
+}
+
+.blinking-cursor::after {
+  content: "_";
+  animation: blink 1s step-end infinite;
+}
+
+/* Custom layout utility classes */
+.monospace-all {
+  font-family: 'JetBrains Mono', monospace !important;
+}
+
+@keyframes slide-up {
+  from { transform: translateY(100%); opacity: 0; }
+  to   { transform: translateY(0);    opacity: 1; }
+}
+
+.counter-roll {
+  display: inline-block;
+  animation: slide-up 150ms cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
