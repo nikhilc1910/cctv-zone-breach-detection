@@ -272,7 +272,7 @@ export async function handleCameraEventMsg(payload: CameraEventPayload) {
 export async function checkAndTriggerAlert(
   machineId: string,
   alertType: string,
-  val: any,
+  val: string | number,
   rule: { severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'; messageTemplate: string },
   timestamp: Date,
   isViolating: boolean

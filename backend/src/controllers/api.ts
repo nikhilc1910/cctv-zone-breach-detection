@@ -4,6 +4,7 @@ import { logger } from '../utils/logger';
 import { socketService } from '../services/socket';
 import { handleCameraEventMsg } from '../services/processor';
 import { deleteActiveAlertCache } from '../utils/redis';
+import { CameraEventPayloadSchema } from '../services/ingestion';
 
 const router = Router();
 
@@ -212,10 +213,14 @@ router.post('/machines/:id/downtime', async (req: Request, res: Response) => {
 router.get('/machines/:id/downtime', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    const limit = Math.min(parseInt(req.query.limit as string || '10', 10), 100);
+    const offset = Math.max(parseInt(req.query.offset as string || '0', 10), 0);
+    
     const events = await prisma.downtimeEvent.findMany({
       where: { machineId: id },
       orderBy: { startTime: 'desc' },
-      take: 10
+      take: limit,
+      skip: offset
     });
     res.json(events);
   } catch (error: any) {
@@ -265,9 +270,15 @@ router.get('/reports/downtime/export', async (req: Request, res: Response) => {
  */
 router.post('/simulate/camera', async (req: Request, res: Response) => {
   try {
-    const payload = req.body;
+    const result = CameraEventPayloadSchema.safeParse(req.body);
+    if (!result.success) {
+      return res.status(400).json({
+        error: 'Invalid camera event payload',
+        details: result.error.flatten()
+      });
+    }
     // Execute identical CV parsing logic as MQTT ingestion
-    await handleCameraEventMsg(payload);
+    await handleCameraEventMsg(result.data);
     res.status(201).json({ status: 'success', message: 'Camera event processed.' });
   } catch (error: any) {
     logger.error(`API Camera Ingestion Simulation Failed: ${error.message}`);

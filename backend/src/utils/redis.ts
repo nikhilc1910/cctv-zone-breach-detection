@@ -41,7 +41,8 @@ export async function getActiveAlertCache(machineId: string, alertType: string):
 
 export async function setActiveAlertCache(machineId: string, alertType: string, alertId: string): Promise<void> {
   await connectRedis();
-  await redisClient.set(`active_alert:${machineId}:${alertType}`, alertId);
+  // 24h TTL acts as a safety valve against orphaned cache entries
+  await redisClient.set(`active_alert:${machineId}:${alertType}`, alertId, { EX: 86400 });
 }
 
 export async function deleteActiveAlertCache(machineId: string, alertType: string): Promise<void> {
