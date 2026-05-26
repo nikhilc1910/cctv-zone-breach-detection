@@ -8,7 +8,7 @@ dotenv.config({ path: path.join(__dirname, '../../.env') });
 export const config = {
   port: parseInt(process.env.PORT || '5000', 10),
   nodeEnv: process.env.NODE_ENV || 'development',
-  databaseUrl: process.env.DATABASE_URL || 'postgresql://twin_operator:SecretDbPassword123@localhost:5432/digital_twin?schema=public',
+  databaseUrl: process.env.DATABASE_URL!,
   redisUrl: process.env.REDIS_URL || 'redis://localhost:6379',
   mqttUrl: process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883',
   
@@ -21,3 +21,7 @@ export const config = {
     vibration: parseFloat(process.env.THRESHOLD_VIBRATION || '5.0'),     // mm/s
   }
 };
+
+if (!process.env.DATABASE_URL) {
+  throw new Error('FATAL: DATABASE_URL environment variable is not set.');
+}

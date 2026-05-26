@@ -1,7 +1,10 @@
 const mqtt = require('mqtt');
 require('dotenv').config({ path: '../.env' });
 
-const brokerUrl = process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883';
+let brokerUrl = process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883';
+if (brokerUrl.includes('mosquitto') && !process.env.IS_DOCKER) {
+  brokerUrl = brokerUrl.replace('mosquitto', 'localhost');
+}
 const client = mqtt.connect(brokerUrl);
 
 const cameraEvents = [
