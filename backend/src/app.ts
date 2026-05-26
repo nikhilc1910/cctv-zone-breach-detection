@@ -78,8 +78,8 @@ process.on('SIGTERM', async () => {
   stopHeartbeatMonitor();
   try {
     await redisClient.quit();
-  } catch (err) {
-    logger.error('Error closing Redis client:', err);
+  } catch (err: any) {
+    logger.error(`Error closing Redis client: ${err?.message || err}`);
   }
   server.close(() => {
     logger.info('HTTP server closed. Exiting.');
