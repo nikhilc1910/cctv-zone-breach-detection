@@ -8,6 +8,18 @@ import { deleteActiveAlertCache } from '../utils/redis';
 const router = Router();
 
 /**
+ * GET /api
+ * Diagnostic API root health endpoint.
+ */
+router.get('/', (req: Request, res: Response) => {
+  res.json({
+    status: 'ok',
+    service: 'Autonex Digital Twin API',
+    uptime: process.uptime()
+  });
+});
+
+/**
  * GET /api/machines
  * Retrieves all registered machines and their last known metrics.
  */

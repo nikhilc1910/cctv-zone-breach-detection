@@ -1,7 +1,53 @@
+# Dependency Directories
 node_modules/
+/jspm_packages/
+web_modules/
+
+# Local Environment & Secrets
 .env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Build Outputs & Compilation Caches
 dist/
+build/
+.tsbuildinfo
+.eslintcache
+
+# Logs & Diagnostic Dumps
 *.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Database & Cache Data Stores
 pgdata/
-.gemini/
 dump.rdb
+.redis-data/
+docker/mosquitto/data/
+docker/mosquitto/log/
+
+# Testing & Coverage Outputs
+coverage/
+.nyc_output/
+.jest/
+
+# IDE & Editor Configurations
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS Configurations
+.DS_Store
+Thumbs.db
+
+# Agentic Tooling Exclusions
+.gemini/

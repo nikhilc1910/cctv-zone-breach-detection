@@ -72,9 +72,33 @@ Below are the mockups of the finished dashboard and simulated CCTV vision feeds 
 ### 3.1 Digital Twin SCADA Dashboard Interface
 The plant operator panel runs on a monospace layout with strict contrast styling and accent statuses (Green=Running, Amber=Idle, Red=Down, Blue=Maintenance). DOWN machines trigger a breathing red shadow ring to capture attention.
 
-![Industrial Twin Dashboard](file:///C:/Users/Nikhil%20C/.gemini/antigravity-ide/brain/c4992476-460d-4324-aa15-328ff90c345e/twin_dashboard_mockup_1779795839725.png)
+![Industrial Twin Dashboard](media/dashboard_screenshot.png)
 
 ### 3.2 CCTV Camera Event Violation
 Safety CCTV event logs are pushed to the sidebar containing relative timestamps, severity indicators, and root-cause preview images.
 
-![CCTV Zone Breach](file:///C:/Users/Nikhil%20C/.gemini/antigravity-ide/brain/c4992476-460d-4324-aa15-328ff90c345e/cctv_zone_breach_1779790874999.png)
+![CCTV Zone Breach](media/cctv_zone_breach.png)
+
+***
+
+## 4. Repository Professionalization & Polish
+
+We have made the following repository-level changes to optimize discoverability, SEO, and indexing:
+
+### 4.1 Staged Visual Assets
+- Created a `media/` folder in the root directory to store high-resolution UI walkthrough mockups.
+- Staged `media/dashboard_screenshot.png` and `media/cctv_zone_breach.png` locally in the repository.
+
+### 4.2 Comprehensive Configuration Files
+- Expanded [.gitignore](.gitignore) to cover common Editor configurations (`.vscode`, `.idea`), build outputs, package caches, OS temporary files, and database schemas.
+
+### 4.3 GitHub Automation Templates
+- Created [.github/PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md) for standardized peer review checkmarks.
+- Created [.github/ISSUE_TEMPLATE/bug_report.md](.github/ISSUE_TEMPLATE/bug_report.md) for clean issue tracking.
+- Created [.github/ISSUE_TEMPLATE/feature_request.md](.github/ISSUE_TEMPLATE/feature_request.md) for standard feature proposals.
+
+### 4.4 Recruitment & Recruiter Visibility Polish
+- Added technology shield badges (TypeScript, React, Redis, Postgres, MQTT, Docker, and MIT License).
+- Added an **Engineering Highlights** section explaining key architecture decisions (MQTT QoS levels, Redis caching, write buffering, passive heartbeat timeouts).
+- Documented a full visual Monorepo Directory Tree representation of the workspace.
+- Documented future extension roadmaps (e.g., LSTM Anomaly Telemetry models, Predictive Maintenance forecasting).
