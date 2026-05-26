@@ -15,6 +15,8 @@ export const PlantMap: React.FC<PlantMapProps> = ({ onSelectMachine }) => {
     ? machines
     : machines.filter((m) => m.lineId === selectedLine);
 
+  const sortedFiltered = [...filteredMachines].sort((a, b) => a.id.localeCompare(b.id));
+
   return (
     <div
       style={{
@@ -103,14 +105,16 @@ export const PlantMap: React.FC<PlantMapProps> = ({ onSelectMachine }) => {
         style={{
           flex: 1,
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 120px))',
+          gridTemplateColumns: selectedLine === 'ALL'
+            ? 'repeat(5, 120px)'
+            : 'repeat(auto-fill, minmax(120px, 120px))',
           gridAutoRows: '90px',
           gap: '8px',
           minHeight: '200px',
           position: 'relative',
         }}
       >
-        {filteredMachines.length === 0 ? (
+        {sortedFiltered.length === 0 ? (
           <div
             style={{
               gridColumn: '1 / -1',
@@ -125,7 +129,7 @@ export const PlantMap: React.FC<PlantMapProps> = ({ onSelectMachine }) => {
             establishing connection...
           </div>
         ) : (
-          filteredMachines.map((m) => (
+          sortedFiltered.map((m) => (
             <MachineCell
               key={m.id}
               machine={m}

@@ -51,7 +51,7 @@ interface LiveDashboardContextProps {
 
 const LiveDashboardContext = createContext<LiveDashboardContextProps | undefined>(undefined);
 
-const API_BASE_URL = 'http://localhost:5000/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
 
 export const LiveDashboardProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [machines, setMachines] = useState<MachineState[]>([]);
@@ -74,7 +74,9 @@ export const LiveDashboardProvider: React.FC<{ children: React.ReactNode }> = ({
     fetchInitialAlerts();
 
     // Connect to WebSocket Server
-    const socketInstance = io('http://localhost:5000');
+    const socketInstance = io(import.meta.env.VITE_WS_URL || '/', {
+      path: '/socket.io'
+    });
     setSocket(socketInstance);
 
     socketInstance.on('connect', () => {
@@ -89,18 +91,18 @@ export const LiveDashboardProvider: React.FC<{ children: React.ReactNode }> = ({
 
     // Handle cache pre-population
     socketInstance.on('telemetry:init', (data: MachineState[]) => {
-      setMachines(data);
+      const sorted = [...data].sort((a, b) => a.id.localeCompare(b.id));
+      setMachines(sorted);
     });
 
     // Handle real-time machine telemetry packet updates
     socketInstance.on('telemetry:update', (data: MachineState) => {
       setMachines((prev) => {
         const exists = prev.some((m) => m.id === data.id);
-        if (exists) {
-          return prev.map((m) => (m.id === data.id ? data : m));
-        } else {
-          return [...prev, data];
-        }
+        const updated = exists
+          ? prev.map((m) => (m.id === data.id ? data : m))
+          : [...prev, data];
+        return [...updated].sort((a, b) => a.id.localeCompare(b.id));
       });
     });
 

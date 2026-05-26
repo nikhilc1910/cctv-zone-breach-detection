@@ -1,17 +1,28 @@
 const mqtt = require('mqtt');
 require('dotenv').config({ path: '../.env' });
 
-const brokerUrl = process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883';
+let brokerUrl = process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883';
+if (brokerUrl.includes('mosquitto') && !process.env.IS_DOCKER) {
+  brokerUrl = brokerUrl.replace('mosquitto', 'localhost');
+}
 const client = mqtt.connect(brokerUrl);
 
-// Seed data structures for simulated factory floor machines
 const machines = [
   { id: 'MACHINE_11', line: 'line_1', status: 'RUNNING', temp: 52, vib: 2.1, power: 14.8 },
   { id: 'MACHINE_12', line: 'line_1', status: 'RUNNING', temp: 58, vib: 2.3, power: 15.2 },
+  { id: 'MACHINE_13', line: 'line_1', status: 'RUNNING', temp: 50, vib: 1.8, power: 13.5 },
+  { id: 'MACHINE_14', line: 'line_1', status: 'RUNNING', temp: 55, vib: 2.0, power: 14.2 },
+  { id: 'MACHINE_15', line: 'line_1', status: 'RUNNING', temp: 53, vib: 1.9, power: 13.9 },
   { id: 'MACHINE_21', line: 'line_2', status: 'RUNNING', temp: 47, vib: 1.9, power: 16.1 },
   { id: 'MACHINE_22', line: 'line_2', status: 'IDLE', temp: 33, vib: 0.4, power: 1.8 },
+  { id: 'MACHINE_23', line: 'line_2', status: 'RUNNING', temp: 49, vib: 2.0, power: 15.5 },
+  { id: 'MACHINE_24', line: 'line_2', status: 'RUNNING', temp: 51, vib: 1.7, power: 14.7 },
+  { id: 'MACHINE_25', line: 'line_2', status: 'RUNNING', temp: 48, vib: 1.8, power: 15.0 },
   { id: 'MACHINE_31', line: 'line_3', status: 'RUNNING', temp: 62, vib: 2.6, power: 17.5 },
-  { id: 'MACHINE_32', line: 'line_3', status: 'MAINTENANCE', temp: 38, vib: 0.8, power: 4.5 }
+  { id: 'MACHINE_32', line: 'line_3', status: 'MAINTENANCE', temp: 38, vib: 0.8, power: 4.5 },
+  { id: 'MACHINE_33', line: 'line_3', status: 'RUNNING', temp: 60, vib: 2.4, power: 16.8 },
+  { id: 'MACHINE_34', line: 'line_3', status: 'IDLE', temp: 35, vib: 0.5, power: 2.0 },
+  { id: 'MACHINE_35', line: 'line_3', status: 'DOWN', temp: 25, vib: 0.0, power: 0.1 }
 ];
 
 client.on('connect', () => {
@@ -24,6 +35,14 @@ client.on('connect', () => {
       let currentTemp = m.temp + (Math.random() - 0.5) * 4;
       let currentVib = m.vib + (Math.random() - 0.5) * 0.8;
       let currentPower = m.power + (Math.random() - 0.5) * 2;
+
+      // Force MACHINE_35 to stay DOWN permanently
+      if (m.id === 'MACHINE_35') {
+        currentStatus = 'DOWN';
+        currentTemp = 24.5 + (Math.random() - 0.5) * 1;
+        currentVib = 0.05 + (Math.random() - 0.5) * 0.02;
+        currentPower = 0.1;
+      }
 
       // 1. Spikes for testing High Temperature Alarm (Threshold 80°C)
       if (m.id === 'MACHINE_11' && Math.random() < 0.12) {
