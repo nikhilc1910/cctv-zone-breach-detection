@@ -14,6 +14,9 @@ let telemetryBuffer: {
   powerConsumption: number;
 }[] = [];
 
+// Throttling cache for Postgres Machine table updates to prevent database write amplification
+const lastDbUpdateMap = new Map<string, { status: string; timestamp: number }>();
+
 const BATCH_INTERVAL_MS = 5000;
 
 // Periodic job to commit buffered telemetry in bulk to PostgreSQL
@@ -79,26 +82,37 @@ export async function handleTelemetryMsg(payload: TelemetryPayload, topic: strin
     });
 
     // 3. Upsert machine metadata configuration in Postgres (so new machines auto-register)
-    await prisma.machine.upsert({
-      where: { id: machineId },
-      update: {
-        status: payload.status,
-        lastTemperature: payload.metrics.temperature,
-        lastVibration: payload.metrics.vibration,
-        lastPower: payload.metrics.power_consumption,
-        lastUpdated: timestamp
-      },
-      create: {
-        id: machineId,
-        name: `Machine ${machineId}`,
-        lineId,
-        status: payload.status,
-        lastTemperature: payload.metrics.temperature,
-        lastVibration: payload.metrics.vibration,
-        lastPower: payload.metrics.power_consumption,
-        lastUpdated: timestamp
-      }
-    });
+    // Throttle updates to Postgres to mitigate connection pool exhaustion and write amplification.
+    const now = Date.now();
+    const lastUpdate = lastDbUpdateMap.get(machineId);
+    const shouldUpdateDb = !lastUpdate || 
+                           lastUpdate.status !== payload.status || 
+                           (now - lastUpdate.timestamp) >= 10000;
+
+    if (shouldUpdateDb) {
+      await prisma.machine.upsert({
+        where: { id: machineId },
+        update: {
+          status: payload.status,
+          lastTemperature: payload.metrics.temperature,
+          lastVibration: payload.metrics.vibration,
+          lastPower: payload.metrics.power_consumption,
+          lastUpdated: timestamp
+        },
+        create: {
+          id: machineId,
+          name: `Machine ${machineId}`,
+          lineId,
+          status: payload.status,
+          lastTemperature: payload.metrics.temperature,
+          lastVibration: payload.metrics.vibration,
+          lastPower: payload.metrics.power_consumption,
+          lastUpdated: timestamp
+        }
+      });
+      lastDbUpdateMap.set(machineId, { status: payload.status, timestamp: now });
+      logger.debug(`Postgres metadata synced for machine: ${machineId}`);
+    }
 
     // 4. Downtime Transition Logic (Active Sensor State Ingress)
     if (previousState) {
