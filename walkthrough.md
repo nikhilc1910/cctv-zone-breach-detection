@@ -20,10 +20,11 @@ This document summarizes the changes made to the project, validates its core ing
 - Exported `stopTelemetryBatcher()` from [processor.ts](file:///d:/projects/Autonex%20Ai/backend/src/services/processor.ts) and registered an `afterAll` cleanup hook in [digitalTwin.test.ts](file:///d:/projects/Autonex%20Ai/backend/src/tests/digitalTwin.test.ts) to clean up open timer handles.
 - Fixed mock store leakages in [digitalTwin.test.ts](file:///d:/projects/Autonex%20Ai/backend/src/tests/digitalTwin.test.ts) by clearing the local mock Redis store before every test run.
 
-### 1.4 High-Performance Alert Deduplication
+### 1.4 High-Performance Alert Deduplication & Test Coverage
 - Added Redis caching helper functions (`getActiveAlertCache`, `setActiveAlertCache`, `deleteActiveAlertCache`) in [redis.ts](file:///d:/projects/Autonex%20Ai/backend/src/utils/redis.ts).
 - Re-wired `checkAndTriggerAlert` in [processor.ts](file:///d:/projects/Autonex%20Ai/backend/src/services/processor.ts) to check the Redis active cache **first** before making any disk database reads.
 - Re-wired the Express manual acknowledge and resolve endpoints in [api.ts](file:///d:/projects/Autonex%20Ai/backend/src/controllers/api.ts) to clear the active cache entry upon status changes.
+- Added a fifth unit test verifying that the Redis warm active alert cache hit path correctly bypasses the database query checks.
 
 ### 1.5 SCADA Monospace User Interface
 - Bootstrapped and designed the entire frontend with pure monospace typography using 'JetBrains Mono'.
@@ -32,6 +33,15 @@ This document summarizes the changes made to the project, validates its core ing
 - Created [MachineCell.tsx](file:///d:/projects/Autonex%20Ai/frontend/src/components/MachineCell.tsx) supporting left-bordered status labels, value update flashing, safety threshold highlights (red on breach), and box-shadow pulse breathing on `DOWN` machines.
 - Created [AlertsPanel.tsx](file:///d:/projects/Autonex%20Ai/frontend/src/components/AlertsPanel.tsx) / [AlertRow.tsx](file:///d:/projects/Autonex%20Ai/frontend/src/components/AlertRow.tsx) displaying unclosed alarms, relative time, and text-only buttons that dynamically highlights on hover.
 - Created [TrendModal.tsx](file:///d:/projects/Autonex%20Ai/frontend/src/components/TrendModal.tsx) containing stacked temperature, vibration, and power charts along with the OEE root-cause classification form.
+
+### 1.6 Production-Grade CORS Security & WS Configuration
+- Implemented strict CORS checks on backend Express and Socket.io gateways matching allowed origins based on `NODE_ENV` and `ALLOWED_ORIGIN` environment configurations.
+- Configured graceful system process termination listeners on backend entrypoints to release Redis connection contexts, clear heartbeat checking daemons, and terminate raw HTTP connections.
+
+### 1.7 Simulator Expansion & Stable Grid Layout
+- Expanded MQTT simulator payload seeds to emit telemetry packets for 15 machines (5 per line) and configured varied baseline statuses: 10 RUNNING, 2 IDLE, 1 MAINTENANCE, 1 DOWN permanently, and 1 silent timeout generator.
+- Added stable alphabetical sorting to incoming telemetry contexts in frontend providers.
+- Adjusted frontend layout column rules to enforce a clean 5-column grid when all line states are shown, forming a clean 5x3 monospace SCADA layout.
 
 ***
 
@@ -43,23 +53,24 @@ All unit and integration tests compile cleanly and pass with zero errors, warnin
 > digital-twin-backend@1.0.0 test
 > jest --runInBand --detectOpenHandles
 
-{"level":40,"time":1779794433646,"pid":16680,"hostname":"NIKHILC","msg":"New Threshold Alert triggered on MACHINE_01: Machine temperature exceeds critical limit of 80°C (Current: 85.5°C)"}
-{"level":40,"time":1779794433670,"pid":16680,"hostname":"NIKHILC","msg":"Lost communication channel on machine [MACHINE_SILENT]. Silence age: 75s."}
-{"level":40,"time":1779794433670,"pid":16680,"hostname":"NIKHILC","msg":"New Threshold Alert triggered on MACHINE_SILENT: Lost communication channel. Heartbeat missing for > 60 seconds."}
+{"level":40,"time":1779809729753,"pid":27388,"hostname":"NIKHILC","msg":"New Threshold Alert triggered on MACHINE_01: Machine temperature exceeds critical limit of 80°C (Current: 85.5°C)"}
+{"level":40,"time":1779809729762,"pid":27388,"hostname":"NIKHILC","msg":"Lost communication channel on machine [MACHINE_SILENT]. Silence age: 75s."}
+{"level":40,"time":1779809729762,"pid":27388,"hostname":"NIKHILC","msg":"New Threshold Alert triggered on MACHINE_SILENT: Lost communication channel. Heartbeat missing for > 60 seconds."}
 PASS src/tests/digitalTwin.test.ts
   Digital Twin Observability System Tests
     1. Unit Test: Alert Threshold Logic
-      √ should trigger a HIGH severity alert when temperature exceeds 80°C (6 ms)
-      √ should mitigate alert storm by updating and not creating duplicates when active alert exists (11 ms)
+      √ should trigger a HIGH severity alert when temperature exceeds 80°C (4 ms)
+      √ should mitigate alert storm by updating and not creating duplicates when active alert exists (1 ms)
+      √ should bypass database findFirst check when active alert cache is warm in Redis (2 ms)
     2. Integration Test: Ingestion Ingress Flow
-      √ should process telemetry payloads, caching in Redis immediately and registering in DB (5 ms)
+      √ should process telemetry payloads, caching in Redis immediately and registering in DB (2 ms)
     3. Integration Test: Passive Timeout Detection
-      √ should flag unresponsive machine as DOWN and trigger CONNECTIVITY alert (3 ms)
+      √ should flag unresponsive machine as DOWN and trigger CONNECTIVITY alert (2 ms)
 
 Test Suites: 1 passed, 1 total
-Tests:       4 passed, 4 total
+Tests:       5 passed, 5 total
 Snapshots:   0 total
-Time:        2.823 s, estimated 4 s
+Time:        2.726 s, estimated 4 s
 Ran all test suites.
 ```
 
