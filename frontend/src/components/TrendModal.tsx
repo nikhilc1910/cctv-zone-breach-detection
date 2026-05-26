@@ -44,9 +44,11 @@ export const TrendModal: React.FC<TrendModalProps> = ({ machine, onClose }) => {
   const [downtimeEvents, setDowntimeEvents] = useState<DowntimeRecord[]>([]);
   const [selectedEventId, setSelectedEventId] = useState<string>('');
   const [downtimeReason, setDowntimeReason] = useState<string>('');
+  const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   // Fetch telemetry history (limit to latest 30 readings)
-  const fetchTelemetryData = async () => {
+  const fetchTelemetryData = async (silent = false) => {
     try {
       const res = await axios.get<TelemetryPoint[]>(
         `${API_BASE_URL}/machines/${machine.id}/telemetry?limit=30`
@@ -54,11 +56,12 @@ export const TrendModal: React.FC<TrendModalProps> = ({ machine, onClose }) => {
       setTelemetry(res.data);
     } catch (err) {
       console.error('Failed to fetch machine telemetry history:', err);
+      if (!silent) throw err;
     }
   };
 
   // Fetch recent downtime events
-  const fetchDowntimeData = async () => {
+  const fetchDowntimeData = async (silent = false) => {
     try {
       const res = await axios.get<DowntimeRecord[]>(
         `${API_BASE_URL}/machines/${machine.id}/downtime`
@@ -66,15 +69,35 @@ export const TrendModal: React.FC<TrendModalProps> = ({ machine, onClose }) => {
       setDowntimeEvents(res.data);
     } catch (err) {
       console.error('Failed to fetch machine downtime events:', err);
+      if (!silent) throw err;
     }
   };
 
   useEffect(() => {
-    fetchTelemetryData();
-    fetchDowntimeData();
+    let active = true;
+    const loadInitialData = async () => {
+      setLoading(true);
+      setFetchError(null);
+      try {
+        await Promise.all([
+          fetchTelemetryData(false),
+          fetchDowntimeData(false)
+        ]);
+      } catch (err) {
+        setFetchError('Failed to load telemetry data.');
+      } finally {
+        if (active) setLoading(false);
+      }
+    };
+
+    loadInitialData();
+
     // Poll every 3 seconds to update the active charts in real time when modal is open
-    const interval = setInterval(fetchTelemetryData, 3000);
-    return () => clearInterval(interval);
+    const interval = setInterval(() => fetchTelemetryData(true), 3000);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
   }, [machine.id]);
 
   const handleClassifySubmit = async (e: React.FormEvent) => {
@@ -85,7 +108,7 @@ export const TrendModal: React.FC<TrendModalProps> = ({ machine, onClose }) => {
       await classifyDowntime(machine.id, selectedEventId, downtimeReason);
       setSelectedEventId('');
       setDowntimeReason('');
-      fetchDowntimeData(); // refresh the table
+      fetchDowntimeData(true); // refresh the table
     } catch (err) {
       console.error('Downtime classification failed:', err);
     }
@@ -186,171 +209,184 @@ export const TrendModal: React.FC<TrendModalProps> = ({ machine, onClose }) => {
 
         {/* Scrollable Content Panel */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '12px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          
-          {/* Temperature Chart */}
-          <ChartSection
-            title="TEMPERATURE (°C)"
-            data={chartData}
-            dataKey="temperature"
-            strokeColor="#ef4444"
-          />
+          {loading && (
+            <div style={{ color: '#52524e', fontSize: '13px', textAlign: 'center', padding: '40px', fontFamily: 'JetBrains Mono, monospace' }}>
+              loading telemetry...
+            </div>
+          )}
+          {fetchError && (
+            <div style={{ color: '#ef4444', fontSize: '13px', textAlign: 'center', padding: '40px', fontFamily: 'JetBrains Mono, monospace' }}>
+              {fetchError}
+            </div>
+          )}
+          {!loading && !fetchError && (
+            <>
+              {/* Temperature Chart */}
+              <ChartSection
+                title="TEMPERATURE (°C)"
+                data={chartData}
+                dataKey="temperature"
+                strokeColor="#ef4444"
+              />
 
-          {/* Vibration Chart */}
-          <ChartSection
-            title="VIBRATION (MM/S)"
-            data={chartData}
-            dataKey="vibration"
-            strokeColor="#f59e0b"
-          />
+              {/* Vibration Chart */}
+              <ChartSection
+                title="VIBRATION (MM/S)"
+                data={chartData}
+                dataKey="vibration"
+                strokeColor="#f59e0b"
+              />
 
-          {/* Power Consumption Chart */}
-          <ChartSection
-            title="POWER CONSUMPTION (KW)"
-            data={chartData}
-            dataKey="powerConsumption"
-            strokeColor="#3b82f6"
-          />
+              {/* Power Consumption Chart */}
+              <ChartSection
+                title="POWER CONSUMPTION (KW)"
+                data={chartData}
+                dataKey="powerConsumption"
+                strokeColor="#3b82f6"
+              />
 
-          {/* Downtime Event log */}
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-            <span style={{ fontSize: '11px', color: '#52524e', fontWeight: 600, letterSpacing: '0.5px' }}>
-              RECENT DOWNTIME EVENTS
-            </span>
-            <div style={{ border: '1px solid #1f1f1f', borderRadius: '2px', overflow: 'hidden' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', textAlign: 'left' }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#0a0a0a', borderBottom: '1px solid #1f1f1f' }}>
-                    <th style={{ padding: '6px 8px', color: '#52524e' }}>EVENT ID</th>
-                    <th style={{ padding: '6px 8px', color: '#52524e' }}>START</th>
-                    <th style={{ padding: '6px 8px', color: '#52524e' }}>DURATION</th>
-                    <th style={{ padding: '6px 8px', color: '#52524e' }}>SOURCE</th>
-                    <th style={{ padding: '6px 8px', color: '#52524e' }}>REASON</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {downtimeEvents.length === 0 ? (
-                    <tr>
-                      <td colSpan={5} style={{ padding: '12px 8px', color: '#52524e', textAlign: 'center' }}>
-                        no downtime records archived
-                      </td>
-                    </tr>
-                  ) : (
-                    downtimeEvents.map((evt) => (
-                      <tr key={evt.id} style={{ borderBottom: '1px solid #1f1f1f' }}>
-                        <td style={{ padding: '6px 8px', color: '#52524e', fontFamily: 'monospace' }}>
-                          {evt.id.substring(0, 8)}...
-                        </td>
-                        <td style={{ padding: '6px 8px' }}>
-                          {new Date(evt.startTime).toLocaleString()}
-                        </td>
-                        <td style={{ padding: '6px 8px' }}>
-                          {evt.duration !== null ? `${evt.duration}s` : 'active'}
-                        </td>
-                        <td style={{ padding: '6px 8px', color: '#52524e' }}>
-                          {evt.source}
-                        </td>
-                        <td style={{ padding: '6px 8px', color: evt.reason ? '#e8e8e2' : '#f59e0b' }}>
-                          {evt.reason || 'unclassified'}
-                        </td>
+              {/* Downtime Event log */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '11px', color: '#52524e', fontWeight: 600, letterSpacing: '0.5px' }}>
+                  RECENT DOWNTIME EVENTS
+                </span>
+                <div style={{ border: '1px solid #1f1f1f', borderRadius: '2px', overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '11px', textAlign: 'left' }}>
+                    <thead>
+                      <tr style={{ backgroundColor: '#0a0a0a', borderBottom: '1px solid #1f1f1f' }}>
+                        <th style={{ padding: '6px 8px', color: '#52524e' }}>EVENT ID</th>
+                        <th style={{ padding: '6px 8px', color: '#52524e' }}>START</th>
+                        <th style={{ padding: '6px 8px', color: '#52524e' }}>DURATION</th>
+                        <th style={{ padding: '6px 8px', color: '#52524e' }}>SOURCE</th>
+                        <th style={{ padding: '6px 8px', color: '#52524e' }}>REASON</th>
                       </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                    </thead>
+                    <tbody>
+                      {downtimeEvents.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} style={{ padding: '12px 8px', color: '#52524e', textAlign: 'center' }}>
+                            no downtime records archived
+                          </td>
+                        </tr>
+                      ) : (
+                        downtimeEvents.map((evt) => (
+                          <tr key={evt.id} style={{ borderBottom: '1px solid #1f1f1f' }}>
+                            <td style={{ padding: '6px 8px', color: '#52524e', fontFamily: 'monospace' }}>
+                              {evt.id.substring(0, 8)}...
+                            </td>
+                            <td style={{ padding: '6px 8px' }}>
+                              {new Date(evt.startTime).toLocaleString()}
+                            </td>
+                            <td style={{ padding: '6px 8px' }}>
+                              {evt.duration !== null ? `${evt.duration}s` : 'active'}
+                            </td>
+                            <td style={{ padding: '6px 8px', color: '#52524e' }}>
+                              {evt.source}
+                            </td>
+                            <td style={{ padding: '6px 8px', color: evt.reason ? '#e8e8e2' : '#f59e0b' }}>
+                              {evt.reason || 'unclassified'}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
 
-          {/* OEE Downtime Classification Form */}
-          {downtimeEvents.some((evt) => !evt.reason) && (
-            <div
-              style={{
-                border: '1px solid #1f1f1f',
-                borderRadius: '2px',
-                padding: '12px',
-                backgroundColor: '#0a0a0a',
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px',
-              }}
-            >
-              <span style={{ fontSize: '11px', color: '#52524e', fontWeight: 600, letterSpacing: '0.5px' }}>
-                OEE AUDIT DOWNTIME ROOT-CAUSE ASSIGNMENT
-              </span>
-              <form onSubmit={handleClassifySubmit} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                {/* Event Select */}
-                <select
-                  value={selectedEventId}
-                  onChange={(e) => setSelectedEventId(e.target.value)}
+              {/* OEE Downtime Classification Form */}
+              {downtimeEvents.some((evt) => !evt.reason) && (
+                <div
                   style={{
-                    flex: 1,
-                    backgroundColor: '#111111',
                     border: '1px solid #1f1f1f',
                     borderRadius: '2px',
-                    color: '#e8e8e2',
-                    fontSize: '11px',
-                    fontFamily: 'JetBrains Mono, monospace',
-                    height: '28px',
-                    padding: '0 6px',
+                    padding: '12px',
+                    backgroundColor: '#0a0a0a',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '8px',
                   }}
-                  required
                 >
-                  <option value="">-- Choose Unclassified Event --</option>
-                  {downtimeEvents
-                    .filter((evt) => !evt.reason)
-                    .map((evt) => (
-                      <option key={evt.id} value={evt.id}>
-                        {evt.id.substring(0, 8)}... ({new Date(evt.startTime).toLocaleTimeString()})
-                      </option>
-                    ))}
-                </select>
+                  <span style={{ fontSize: '11px', color: '#52524e', fontWeight: 600, letterSpacing: '0.5px' }}>
+                    OEE AUDIT DOWNTIME ROOT-CAUSE ASSIGNMENT
+                  </span>
+                  <form onSubmit={handleClassifySubmit} style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                    {/* Event Select */}
+                    <select
+                      value={selectedEventId}
+                      onChange={(e) => setSelectedEventId(e.target.value)}
+                      style={{
+                        flex: 1,
+                        backgroundColor: '#111111',
+                        border: '1px solid #1f1f1f',
+                        borderRadius: '2px',
+                        color: '#e8e8e2',
+                        fontSize: '11px',
+                        fontFamily: 'JetBrains Mono, monospace',
+                        height: '28px',
+                        padding: '0 6px',
+                      }}
+                      required
+                    >
+                      <option value="">-- Choose Unclassified Event --</option>
+                      {downtimeEvents
+                        .filter((evt) => !evt.reason)
+                        .map((evt) => (
+                          <option key={evt.id} value={evt.id}>
+                            {evt.id.substring(0, 8)}... ({new Date(evt.startTime).toLocaleTimeString()})
+                          </option>
+                        ))}
+                    </select>
 
-                {/* Reason Select */}
-                <select
-                  value={downtimeReason}
-                  onChange={(e) => setDowntimeReason(e.target.value)}
-                  style={{
-                    flex: 1,
-                    backgroundColor: '#111111',
-                    border: '1px solid #1f1f1f',
-                    borderRadius: '2px',
-                    color: '#e8e8e2',
-                    fontSize: '11px',
-                    fontFamily: 'JetBrains Mono, monospace',
-                    height: '28px',
-                    padding: '0 6px',
-                  }}
-                  required
-                >
-                  <option value="">-- Choose OEE Reason --</option>
-                  {DOWNTIME_REASONS.map((r) => (
-                    <option key={r} value={r}>
-                      {r}
-                    </option>
-                  ))}
-                </select>
+                    {/* Reason Select */}
+                    <select
+                      value={downtimeReason}
+                      onChange={(e) => setDowntimeReason(e.target.value)}
+                      style={{
+                        flex: 1,
+                        backgroundColor: '#111111',
+                        border: '1px solid #1f1f1f',
+                        borderRadius: '2px',
+                        color: '#e8e8e2',
+                        fontSize: '11px',
+                        fontFamily: 'JetBrains Mono, monospace',
+                        height: '28px',
+                        padding: '0 6px',
+                      }}
+                      required
+                    >
+                      <option value="">-- Choose OEE Reason --</option>
+                      {DOWNTIME_REASONS.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
 
-                {/* Submit */}
-                <button
-                  type="submit"
-                  style={{
-                    height: '28px',
-                    backgroundColor: 'none',
-                    border: '1px solid #1f1f1f',
-                    borderRadius: '2px',
-                    color: '#e8e8e2',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    fontFamily: 'JetBrains Mono, monospace',
-                    padding: '0 12px',
-                    cursor: 'pointer',
-                  }}
-                  onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#e8e8e2')}
-                  onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#1f1f1f')}
-                >
-                  SUBMIT
-                </button>
-              </form>
-            </div>
+                    {/* Submit */}
+                    <button
+                      type="submit"
+                      style={{
+                        height: '28px',
+                        backgroundColor: 'none',
+                        border: '1px solid #1f1f1f',
+                        borderRadius: '2px',
+                        color: '#e8e8e2',
+                        fontSize: '11px',
+                        fontWeight: 600,
+                        fontFamily: 'JetBrains Mono, monospace',
+                        padding: '0 12px',
+                        cursor: 'pointer',
+                      }}
+                      onMouseEnter={(e) => (e.currentTarget.style.borderColor = '#e8e8e2')}
+                      onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#1f1f1f')}
+                    >
+                      SUBMIT
+                    </button>
+                  </form>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>
