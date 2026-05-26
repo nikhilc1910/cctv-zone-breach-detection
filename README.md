@@ -1,4 +1,4 @@
-# 🏭 Real-Time Industrial Digital Twin Observability Platform
+# 🏭 Real-Time Factory Floor Digital Twin Dashboard
 
 [![TypeScript](https://img.shields.io/badge/TypeScript-007ACC?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![React](https://img.shields.io/badge/React-20232A?style=flat-square&logo=react&logoColor=61DAFB)](https://react.dev/)
@@ -7,22 +7,26 @@
 [![MQTT](https://img.shields.io/badge/MQTT-3B82F6?style=flat-square&logo=eclipsemosquitto&logoColor=white)](https://mqtt.org/)
 [![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
-[![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen?style=flat-square)](#-running-automated-tests)
+[![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen?style=flat-square)](#-testing-results)
 
-A high-performance virtual representation (**Digital Twin**) of a factory floor blending high-velocity Industrial IoT telemetry (1Hz), edge CCTV computer vision safety alerts, active & passive downtime tracking, and a real-time operator workspace.
+A virtual representation (Digital Twin) of a factory floor that processes 1Hz machine telemetry, catches CCTV computer vision safety alerts, and tracks machine downtime on a live WebSockets-powered React workspace.
 
-Designed for night-shift plant supervisors and operators to correlate telemetry metrics with visual hazard verification under low cognitive load.
+---
+
+## 📌 Why This Project?
+Industrial manufacturing environments often suffer from fragmented data. IoT sensors (PLCs, temperature probes, power meters) publish fast streams, while safety events (PPE violations, restricted zone breaches) occur in separate camera feeds. 
+
+This project solves this by uniting both data streams into a single, unified dashboard. It helps plant supervisors monitor live machine states, check safety warnings with visual previews, and classify downtime events to calculate overall equipment effectiveness (OEE).
 
 ---
 
 ## 📸 System Interfaces
-
 ### 1. Plant Operator SCADA Workspace
-The interface utilizes a monospace contrast layout optimized for dark factory environments. Status transitions trigger subtle animations, and down machinery emits a pulsed red shadow to capture operator attention immediately.
+The interface uses a monospace layout optimized for dark, high-contrast factory screen environments. `DOWN` machines trigger a blinking pulse highlight to capture attention.
 ![Industrial Twin Dashboard](media/dashboard_screenshot.png)
 
-### 2. CCTV Computer Vision Hazard Stream
-Live safety breaches (such as restricted zone entry or missing PPE) are pushed to the active sidebar. Operators can view preview snapshots directly to verify alarms before initiating shutdowns.
+### 2. CCTV Computer Vision Hazard Feed
+Safety events (like unauthorized zone entry or missing safety gear) are streamed live to the sidebar panel with preview snapshots to let operators verify alerts visually.
 ![CCTV Zone Breach](media/cctv_zone_breach.png)
 
 ---
@@ -35,7 +39,7 @@ Live safety breaches (such as restricted zone entry or missing PPE) are pushed t
                                                      ▼
                                         [MQTT Ingestion Daemon]
                                                      │
-                                            (Ajv/Zod Validation)
+                                            (Zod Verification)
                                                      │
                                          [Stream & Alert Processor]
                                           /                      \
@@ -56,87 +60,26 @@ Live safety breaches (such as restricted zone entry or missing PPE) are pushed t
                         [Vite + React Operator UI]
 ```
 
-### 🧠 Core Engineering Design Choices
-
-1. **Lightweight Edge Telemetry Ingestion (QoS 1)**
-   Factory machine sensors publish telemetry at 1Hz. The system uses **QoS 1 (At-least-once)** to avoid packet drops over unreliable factory Wi-Fi networks. Any potential duplicate packets are handled cleanly at the ingestion layer using state/timestamp comparisons.
-2. **Transactional Computer Vision Alerts (QoS 2)**
-   CCTV cameras analyze the floor for safety events (e.g., forklift near-misses, unauthorized zone entries) and publish them to MQTT with **QoS 2 (Exactly-once)**. Because missing or duplicating a safety alarm is critical, QoS 2's four-step handshake guarantees that safety alerts are processed exactly once.
-3. **High-Performance Caching & Deduping (Redis)**
-   To handle rapid 1Hz streams from multiple machines, telemetry is cached immediately in Redis to keep the active status metrics fresh. The system uses a **cache-aside** design for alert deduplication, verifying active alerts in Redis first to prevent database connection pool exhaustion and read/write starvation.
-4. **PostgreSQL Write-Amplification Mitigation (Buffering)**
-   Writing high-frequency telemetry directly to PostgreSQL causes write-amplification and disk bottlenecks. Instead, telemetry records are buffered in-memory and flushed to PostgreSQL in bulk transaction inserts every **5 seconds**, reducing disk I/O load.
-5. **Passive Heartbeat Daemon (Timeout Detection)**
-   An active machine might lose power or connectivity without sending a final status packet. To catch this, a background daemon polls Redis states every 10 seconds. If a machine's last heartbeat is older than **60 seconds**, it automatically triggers a `SYSTEM_TIMEOUT` downtime event, updates its status to `DOWN`, and broadcasts a critical connectivity alarm.
+### 🧠 Simple Project Flow
+1. **IoT Simulators** publish temperature, vibration, and power telemetry over MQTT at 1Hz.
+2. **CCTV Simulators** publish safety events (e.g. PPE violations, near-misses) over MQTT.
+3. The **Ingestion Daemon** validates incoming payloads via Zod schemas and hands them to the Processor.
+4. The **Processor** caching layer saves current state in Redis immediately, batches database commits to PostgreSQL every 5 seconds, and evaluates safety limits.
+5. Live updates are pushed to the **React UI** via WebSockets, and historical downtime data is fetched via REST API.
 
 ---
 
-## 📂 Repository Directory Layout
+## 🚀 Quick Start (Docker Setup)
 
-This monorepo is structured cleanly with separate concerns to mimic a production environment:
-
-```
-cctv-zone-breach-detection/
-├── docker-compose.yml       # Production docker orchestration setup
-├── README.md                # System documentation
-├── PRD.md                   # Product Requirements Document (What & Why)
-├── implementation_plan.md   # Architectural & Implementation specs (How)
-├── walkthrough.md           # Walkthrough & Verification details
-├── .gitignore               # Multi-environment dependency exclusions
-├── .github/                 # GitHub workflows & templates
-│   ├── PULL_REQUEST_TEMPLATE.md
-│   └── ISSUE_TEMPLATE/
-│       ├── bug_report.md
-│       └── feature_request.md
-├── media/                   # Screen captures & mockup assets
-├── database/                # Global Prisma schemas & setup
-│   └── schema.prisma
-├── backend/                 # Node.js Express API & MQTT Daemon
-│   ├── Dockerfile
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── src/
-│   │   ├── app.ts           # Service bootstrap & routing configurations
-│   │   ├── config.ts        # Environment configurations
-│   │   ├── controllers/     # Express REST endpoint controllers
-│   │   ├── gateways/        # Socket.io connection gates
-│   │   ├── services/
-│   │   │   ├── ingestion.ts # MQTT listener client
-│   │   │   ├── processor.ts # Stream metric & Alert logic
-│   │   │   └── timeout.ts   # Active timeout monitor daemon
-│   │   └── utils/           # DB, Redis, and logger clients
-│   └── public/              # Mock visual CCTV event assets
-├── frontend/                # React Vite Operator UI Client
-│   ├── Dockerfile
-│   ├── package.json
-│   ├── tsconfig.json
-│   ├── vite.config.ts
-│   └── src/
-│       ├── main.tsx
-│       ├── App.tsx
-│       ├── index.css        # Global CSS stylesheet (Tailwind directives)
-│       ├── components/      # UI Grid, cards, sidebar, chart modals
-│       ├── context/         # Socket state providers
-│       └── hooks/
-└── simulators/              # Production floor simulators
-    ├── package.json
-    ├── sensor_simulator.js  # Emitter for 1Hz machine telemetry
-    └── camera_simulator.js  # Emitter for CCTV safety breach events
-```
-
----
-
-## 🚀 Docker Setup (Quick Start)
-
-Deploy the entire infrastructure (Mosquitto, Redis, PostgreSQL, the API server, and React UI) in the background with a single command:
+Deploy the entire workspace (MQTT, Redis, Postgres, Backend API, and Frontend UI) with a single command:
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/nikhilc1910/cctv-zone-breach-detection.git
-   cd cctv-zone-breach-detection
+   git clone https://github.com/nikhilc1910/realtime-digital-twin-dashboard.git
+   cd realtime-digital-twin-dashboard
    ```
 2. **Configure Environment Variables:**
-   Copy `.env.example` to `.env` and configure appropriate values before running:
+   Copy the example environment file:
    ```bash
    cp .env.example .env
    ```
@@ -144,34 +87,30 @@ Deploy the entire infrastructure (Mosquitto, Redis, PostgreSQL, the API server, 
    ```bash
    docker compose up -d --build
    ```
-3. **Run database migrations:**
-   Apply migrations to synchronize the database schema within the backend container:
+4. **Run database migrations:**
+   Apply database schemas within the backend api container:
    ```bash
    docker compose exec backend npx prisma migrate dev --name init
    ```
-4. **Access the services:**
-   * **Operator Dashboard:** `http://localhost:3000`
-   * **Backend REST API:** `http://localhost:5000`
-   * **Mosquitto Broker:** `localhost:1883` (MQTT), `localhost:9001` (WebSockets)
-   * **Redis Cache:** `localhost:6379`
-   * **Postgres Database:** `localhost:5432`
+5. **Access the services:**
+   * **Operator UI Dashboard:** `http://localhost:3000`
+   * **Backend API Server:** `http://localhost:5000`
+   * **MQTT Broker:** `localhost:1883`
 
 ---
 
-## ⚙️ Manual Developer Installation (Local Setup)
+## ⚙️ Manual Setup (Local Development)
 
-If you prefer to run services outside of Docker for debugging, follow these steps:
+To run the components individually without Docker:
 
-### 1. Database Migrations
-Set up a PostgreSQL instance, copy `.env.example` to `.env` in the backend directory, update your database connection parameters, and run:
+### 1. Database and Cache setup
+Install and run a local PostgreSQL instance and a Redis server. Copy `.env.example` to `.env` in the root workspace and update your connection parameters.
+
+### 2. Start Backend API
 ```bash
 cd backend
 npm install
 npx prisma migrate dev
-```
-
-### 2. Start Backend API
-```bash
 npm run dev
 ```
 The server will run on `http://localhost:5000`.
@@ -184,87 +123,95 @@ npm run dev
 ```
 The UI will launch on `http://localhost:3000`.
 
----
-
-## 📡 Edge Simulators
-
-To stream live data into the digital twin, launch the edge simulator scripts:
-
-1. **Install dependencies:**
-   ```bash
-   cd simulators
-   npm install
-   ```
-2. **Start IoT Machine Telemetry (1Hz):**
-   ```bash
-   npm run sensors
-   ```
-3. **Start CCTV Computer Vision Safety Events (15s):**
-   ```bash
-   npm run camera
-   ```
-
----
-
-## 🧪 Running Automated Tests
-
-The backend includes a comprehensive Jest test suite checking threshold evaluations, alert storm deduplications, database ingestion, and heartbeat timeouts:
+### 4. Run Edge Simulators
+To stream simulated sensors and camera feeds:
 ```bash
-cd backend
-npm run test
+cd ../simulators
+npm install
+npm run sensors  # Starts 1Hz machine sensors
+npm run camera   # Starts CCTV camera safety event stream
 ```
 
 ---
 
-## 📖 API Documentation
+## 🧠 Key Technical Decisions
+
+### 1. Alert Deduplication (Redis Cache-Aside)
+Evaluating thresholds at 1Hz can trigger duplicate alerts. To prevent database read-write storms, active alerts are cached in Redis. When a threshold is breached, the processor checks Redis first; if the alert exists, it updates `updatedAt` in Postgres instead of writing duplicate records.
+
+### 2. Database Write Buffering
+Writing telemetry to PostgreSQL at 1Hz per machine creates bottleneck issues. The backend buffers incoming telemetry in-memory and flushes them to PostgreSQL using `createMany` bulk transactions every **5 seconds**, keeping DB overhead low.
+
+### 3. Active Timeout Daemon
+If a machine crashes or loses power, it cannot send a shutdown status. A background daemon polls Redis states every 10 seconds. If a machine's last update is older than **60 seconds**, it automatically updates the status to `DOWN`, registers a `SYSTEM_TIMEOUT` downtime event, and fires a critical connectivity alert.
+
+---
+
+## ⚖️ Tradeoffs & Simplifications
+*   **Simulators vs. Real PLCs**: We use mock JavaScript simulators instead of hardware PLC modules (Modbus/OPC-UA).
+*   **Simple OEE Calculations**: Downtime tracking is calculated from simple duration metrics rather than complex manufacturing schedules.
+*   **Postgres for Time Series**: We used standard PostgreSQL instead of a dedicated timeseries database (like InfluxDB). While InfluxDB scales better for high-frequency logs, Postgres simplified database migrations, setup, and relational tables (e.g. users, downtime logs) for local development.
+
+---
+
+## 🛠️ Challenges Faced
+*   **Docker WebSocket CORS Errors**: Configuring strict CORS rules on Socket.IO led to browser connection blocks in Docker. We solved this by writing a custom Nginx reverse proxy configuration inside the frontend container to route all `/api` and `/socket.io` websocket traffic straight to the backend container under a single host.
+*   **Jest Mock Contamination**: In-memory Redis mocks leaked states between unit test runs. We resolved this by exporting a timer cleanup method (`stopTelemetryBatcher`) and resetting local state variables inside a Jest `beforeEach` hook.
+
+---
+
+## 🧪 Testing Results
+The backend includes Jest tests checking alert threshold evaluations, cache lookups, database upserts, and connectivity timeouts:
+```bash
+cd backend
+npm run test
+```
+All **5 unit and integration tests** compile cleanly and pass successfully with zero memory leaks.
+
+---
+
+## 📖 REST API & WebSockets Documentation
+
+### Health Check Endpoint
+*   **`GET /health`** (REST): Verifies service diagnostics. Returns:
+    ```json
+    {
+      "status": "OK",
+      "environment": "development",
+      "timestamp": "2026-05-26T21:12:40.000Z"
+    }
+    ```
 
 ### REST API Endpoints
 
-| Endpoint | Method | Access | Description |
-| :--- | :--- | :--- | :--- |
-| `GET /api` | `GET` | All | Root diagnostic health and uptime status check. |
-| `GET /api/machines` | `GET` | All | Fetch all registered machines with status and cached metrics. |
-| `GET /api/machines/:id/telemetry` | `GET` | All | Fetch historical telemetry readings for trend charts. Query parameters: `?limit=` (default 50, cap 500), `?offset=` (default 0). |
-| `GET /api/alerts` | `GET` | All | Fetch paginated alarms. Query parameters: `?limit=`, `?offset=`, `?status=` (ACTIVE, ACKNOWLEDGED, RESOLVED). |
-| `POST /api/alerts/:id/acknowledge` | `POST` | Operator | Acknowledge an active alert. Payload: `{ "operatorId": "OP_UUID" }`. |
-| `POST /api/alerts/:id/resolve` | `POST` | Operator | Resolve an alert. Payload: `{ "operatorId": "OP_UUID" }`. |
-| `POST /api/machines/:id/downtime` | `POST` | Operator | Submit Root-Cause OEE classifications. Payload: `{ "eventId": "EVENT_UUID", "reason": "Reason details" }`. |
-| `GET /api/machines/:id/downtime` | `GET` | All | Retrieve historical downtime logs for a specific machine. |
-| `GET /api/reports/downtime/export` | `GET` | Supervisor| Download OEE audit logs as a structured `.csv` file. |
-| `POST /api/simulate/camera` | `POST` | Developer | Emits camera event for simulation testing. |
+| Method | Endpoint | Description |
+| :--- | :--- | :--- |
+| `GET` | `/api/machines` | Fetch registered machines and their cached stats. |
+| `GET` | `/api/machines/:id/telemetry` | Fetch historical metrics for trend charts (`?limit=50`). |
+| `GET` | `/api/alerts` | Fetch paginated alerts (`?status=ACTIVE`). |
+| `POST`| `/api/alerts/:id/acknowledge` | Acknowledge active alert. |
+| `POST`| `/api/alerts/:id/resolve` | Resolve active alert (clears cache). |
+| `POST`| `/api/machines/:id/downtime` | Submit OEE downtime classification. |
+| `GET` | `/api/machines/:id/downtime` | Fetch downtime logs for a machine. |
+| `GET` | `/api/reports/downtime/export` | Download OEE audit logs as a `.csv` file. |
 
-### WebSocket Gateway (Socket.IO on `ws://localhost:5000`)
-
-* **Inbound Client Events:**
-  * `join:line` (payload: `{ "lineId": "line_1" }`): Joins a floor-line update room.
-  * `leave:line` (payload: `{ "lineId": "line_1" }`): Leaves the floor-line room.
-* **Outbound Server Broadcasts:**
-  * `telemetry:init` (payload: `MachineState[]`): Pre-populates operator screen states on handshake.
-  * `telemetry:update` (payload: `MachineState`): 1Hz update broadcasted to specific floor-line rooms.
-  * `alert:new` (payload: `Alert`): Broadcasted globally to `'alerts'` room.
-  * `alert:update` (payload: `Alert`): Emitted on state shifts (acknowledge/resolve).
+### WebSockets Events (Socket.IO)
+*   **Inbound Client Events:**
+    *   `join:line` (payload: `{ "lineId": "line_1" }`): Subscribes to a production line.
+    *   `leave:line` (payload: `{ "lineId": "line_1" }`): Unsubscribes from a production line.
+*   **Outbound Server Events:**
+    *   `telemetry:init` (payload: `MachineState[]`): Pre-populates operator screen states.
+    *   `telemetry:update` (payload: `MachineState`): Telemetry broadcasted at 1Hz.
+    *   `alert:new` (payload: `Alert`): Pushes new safety/threshold alert.
+    *   `alert:update` (payload: `Alert`): Pushes alert status changes.
 
 ---
 
-## 🗺️ Roadmap & Future Scope
-
-* [ ] **Predictive Machine Failures (ML)**: Integrate LSTM autoencoders to calculate an "Anomaly Score" based on temperature + vibration trends, raising warnings *before* a failure occurs.
-* [ ] **Intelligent Alarm Prioritization**: Dynamically score alert criticalities by correlating safety violations and machine downtime histories.
-* [ ] **RTSP Live Camera Feeds**: Transition from static preview snapshots to live HLS/RTSP CCTV streams on the sidebar panel.
+## 🔮 Future AI/ML Extensions
+*   **LSTM Telemetry Anomaly Detection**: Train a lightweight Long Short-Term Memory (LSTM) network to score incoming vibration and temperature sequences, triggering warning alerts before thresholds are breached.
+*   **Predictive Maintenance Models**: Estimate remaining useful life (RUL) of machine bearings by analyzing power and vibration fatigue trends over time.
 
 ---
 
-## 🤝 Contribution Guidelines
-
-Contributions are welcome! Please follow these steps:
-1. Fork the project.
-2. Create a branch (`git checkout -b feature/NewFeature`).
-3. Commit your changes (`git commit -m 'Add NewFeature'`).
-4. Push to the branch (`git push origin feature/NewFeature`).
-5. Open a Pull Request for review.
-
----
-
-## 📄 License
-
+## 🤝 License
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
