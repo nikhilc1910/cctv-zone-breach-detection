@@ -1,0 +1,132 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum MachineStatus {
+  RUNNING
+  IDLE
+  DOWN
+  MAINTENANCE
+  UNKNOWN
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AlertStatus {
+  ACTIVE
+  ACKNOWLEDGED
+  RESOLVED
+}
+
+enum DetectionSource {
+  SENSOR
+  MANUAL
+  SYSTEM_TIMEOUT
+}
+
+enum UserRole {
+  OPERATOR
+  SUPERVISOR
+}
+
+model User {
+  id           String    @id @default(uuid())
+  username     String    @unique
+  passwordHash String
+  role         UserRole  @default(OPERATOR)
+  alerts       Alert[]   // Alerts acknowledged/resolved by this user
+  createdAt    DateTime  @default(now())
+}
+
+model Machine {
+  id               String            @id
+  name             String
+  lineId           String
+  status           MachineStatus     @default(UNKNOWN)
+  lastUpdated      DateTime          @default(now())
+  
+  // Cache of latest metrics to avoid querying telemetry history for basic state reads
+  lastTemperature  Float?
+  lastVibration    Float?
+  lastPower        Float?
+  
+  telemetryReadings TelemetryReading[]
+  downtimeEvents    DowntimeEvent[]
+  alerts            Alert[]
+  
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+}
+
+model TelemetryReading {
+  id               String   @id @default(uuid())
+  machineId        String
+  machine          Machine  @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  timestamp        DateTime @default(now())
+  temperature      Float
+  vibration        Float
+  powerConsumption Float
+
+  @@index([machineId, timestamp])
+}
+
+model DowntimeEvent {
+  id               String          @id @default(uuid())
+  machineId        String
+  machine          Machine         @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  startTime        DateTime
+  endTime          DateTime?
+  duration         Int?            // Duration stored in seconds
+  reason           String?
+  source           DetectionSource @default(SENSOR)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@index([machineId, startTime])
+}
+
+model Alert {
+  id             String        @id @default(uuid())
+  machineId      String?
+  machine        Machine?      @relation(fields: [machineId], references: [id], onDelete: SetNull)
+  cameraId       String?
+  cameraEventId  String?       @unique
+  cameraEvent    CameraEvent?  @relation(fields: [cameraEventId], references: [id], onDelete: Cascade)
+  alertType      String        // HIGH_TEMPERATURE, HIGH_VIBRATION, DOWNTIME, CONNECTIVITY, SAFETY_VIOLATION
+  severity       AlertSeverity
+  status         AlertStatus   @default(ACTIVE)
+  message        String
+  timestamp      DateTime      @default(now())
+  resolvedAt     DateTime?
+  acknowledgedAt DateTime?
+  operatorId     String?       // Operator who acknowledged/resolved
+  operator       User?         @relation(fields: [operatorId], references: [id])
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@index([machineId, status])
+  @@index([cameraId, status])
+  @@index([cameraEventId])
+}
+
+model CameraEvent {
+  id         String   @id @default(uuid())
+  cameraId   String
+  zone       String
+  timestamp  DateTime @default(now())
+  eventType  String   // restricted_zone_entry, ppe_violation, machine_blockage, etc.
+  confidence Float
+  imageUrl   String
+  alert      Alert?
+  createdAt  DateTime @default(now())
+}

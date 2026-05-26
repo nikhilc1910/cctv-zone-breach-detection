@@ -1,0 +1,14 @@
+{
+  "name": "digital-twin-simulators",
+  "version": "1.0.0",
+  "description": "IoT edge sensor and CCTV simulators for Digital Twin dashboard testing",
+  "main": "sensor_simulator.js",
+  "scripts": {
+    "sensors": "node sensor_simulator.js",
+    "camera": "node camera_simulator.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "mqtt": "^5.6.2"
+  }
+}
