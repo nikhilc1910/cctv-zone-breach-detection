@@ -1,61 +1,48 @@
-# Real-Time Industrial Digital Twin Dashboard — Walkthrough & Verification
+# Technical Implementation Walkthrough
 
-This document summarizes the changes made to the project, validates its core ingestion and alert processing components through automated tests, and presents the visual layout of the completed system.
-
-***
-
-## 1. Summary of Changes Made
-
-### 1.1 PRD & Implementation Plan Separation
-- Split the monolithic `PRD.md` into two separate documents:
-  - [PRD.md](file:///d:/projects/Autonex%20Ai/PRD.md) — What/Why requirements (Problem Statement, Vision, Personas, Functional/Non-Functional requirements).
-  - [implementation_plan.md](file:///d:/projects/Autonex%20Ai/implementation_plan.md) — How technical execution plan (System Architecture, Schemas, API Endpoints, WebSocket design).
-
-### 1.2 Backend Ingestion & Logging Fixes
-- Corrected the Pino logging method invocations in [ingestion.ts](file:///d:/projects/Autonex%20Ai/backend/src/services/ingestion.ts) to resolve TS2769 compilation errors.
-- Added a `GET /api/machines/:id/downtime` endpoint to [api.ts](file:///d:/projects/Autonex%20Ai/backend/src/controllers/api.ts) to retrieve historical downtime records for manual Root-Cause OEE audits.
-
-### 1.3 Jest Caching & Memory Leak Fixes
-- Added `resetMocks: false` and `restoreMocks: false` in [jest.config.js](file:///d:/projects/Autonex%20Ai/backend/jest.config.js) to prevent Jest from wiping out `jest.mock` implementations between test suites.
-- Exported `stopTelemetryBatcher()` from [processor.ts](file:///d:/projects/Autonex%20Ai/backend/src/services/processor.ts) and registered an `afterAll` cleanup hook in [digitalTwin.test.ts](file:///d:/projects/Autonex%20Ai/backend/src/tests/digitalTwin.test.ts) to clean up open timer handles.
-- Fixed mock store leakages in [digitalTwin.test.ts](file:///d:/projects/Autonex%20Ai/backend/src/tests/digitalTwin.test.ts) by clearing the local mock Redis store before every test run.
-
-### 1.4 High-Performance Alert Deduplication & Test Coverage
-- Added Redis caching helper functions (`getActiveAlertCache`, `setActiveAlertCache`, `deleteActiveAlertCache`) in [redis.ts](file:///d:/projects/Autonex%20Ai/backend/src/utils/redis.ts).
-- Re-wired `checkAndTriggerAlert` in [processor.ts](file:///d:/projects/Autonex%20Ai/backend/src/services/processor.ts) to check the Redis active cache **first** before making any disk database reads.
-- Re-wired the Express manual acknowledge and resolve endpoints in [api.ts](file:///d:/projects/Autonex%20Ai/backend/src/controllers/api.ts) to clear the active cache entry upon status changes.
-- Added a fifth unit test verifying that the Redis warm active alert cache hit path correctly bypasses the database query checks.
-
-### 1.5 SCADA Monospace User Interface
-- Bootstrapped and designed the entire frontend with pure monospace typography using 'JetBrains Mono'.
-- Created [TopRibbon.tsx](file:///d:/projects/Autonex%20Ai/frontend/src/components/TopRibbon.tsx) containing OEE summaries that slide up on value change.
-- Created [PlantMap.tsx](file:///d:/projects/Autonex%20Ai/frontend/src/components/PlantMap.tsx) showing the production floor layout, line filtering, a dynamic 8-second horizontal scan line, and an `[EXPORT OEE]` button.
-- Created [MachineCell.tsx](file:///d:/projects/Autonex%20Ai/frontend/src/components/MachineCell.tsx) supporting left-bordered status labels, value update flashing, safety threshold highlights (red on breach), and box-shadow pulse breathing on `DOWN` machines.
-- Created [AlertsPanel.tsx](file:///d:/projects/Autonex%20Ai/frontend/src/components/AlertsPanel.tsx) / [AlertRow.tsx](file:///d:/projects/Autonex%20Ai/frontend/src/components/AlertRow.tsx) displaying unclosed alarms, relative time, and text-only buttons that dynamically highlights on hover.
-- Created [TrendModal.tsx](file:///d:/projects/Autonex%20Ai/frontend/src/components/TrendModal.tsx) containing stacked temperature, vibration, and power charts along with the OEE root-cause classification form.
-
-### 1.6 Production-Grade CORS Security & WS Configuration
-- Implemented strict CORS checks on backend Express and Socket.io gateways matching allowed origins based on `NODE_ENV` and `ALLOWED_ORIGIN` environment configurations.
-- Configured graceful system process termination listeners on backend entrypoints to release Redis connection contexts, clear heartbeat checking daemons, and terminate raw HTTP connections.
-
-### 1.7 Simulator Expansion & Stable Grid Layout
-- Expanded MQTT simulator payload seeds to emit telemetry packets for 15 machines (5 per line) and configured varied baseline statuses: 10 RUNNING, 2 IDLE, 1 MAINTENANCE, 1 DOWN permanently, and 1 silent timeout generator.
-- Added stable alphabetical sorting to incoming telemetry contexts in frontend providers.
-- Adjusted frontend layout column rules to enforce a clean 5-column grid when all line states are shown, forming a clean 5x3 monospace SCADA layout.
+This document outlines the implementation details, verification results, and layout configurations of the completed Real-Time Industrial Digital Twin Dashboard.
 
 ***
 
-## 2. Automated Test Verification Results
+## 1. Project Overview
+This project is a real-time Digital Twin Dashboard designed for factory plant floors. It integrates:
+*   **IoT Ingestion**: Captures high-frequency machine telemetry (status, temperature, vibration, power) at 1Hz via MQTT.
+*   **Safety Monitoring**: Processes computer vision camera events (PPE violations, restricted zone entries) to notify supervisors immediately.
+*   **Downtime Tracking**: Tracks passive machine timeouts and active sensor downtime events to compute plant OEE.
 
-All unit and integration tests compile cleanly and pass with zero errors, warning flags, or open handle leaks.
+***
+
+## 2. Core Features Implemented
+*   **Requirements Separation**: Split monolithic requirements into clear design documents: `PRD.md` (Product Specifications) and `implementation_plan.md` (Technical Architecture).
+*   **Expanded Factory Simulation**: Upgraded IoT simulators to support 15 machines (5 per line across 3 production lines).
+*   **Structured SCADA UI**: Enforced a monospace-only display grid where machines are sorted alphabetically and organized as physical rows.
+*   **Process Security**: Configured CORS origins dynamically on REST and WebSocket layers, and implemented process lifecycle signals to gracefully release connections.
+
+***
+
+## 3. Backend Improvements
+*   **Alert Storm Mitigation**: Added a Redis caching layer for active alerts. The alert engine checks Redis first before querying PostgreSQL, avoiding database bottlenecks during high-frequency telemetry spikes.
+*   **Telemetry Batching**: Telemetry readings are buffered in memory and flushed to PostgreSQL in transactions every 5 seconds to reduce write overhead.
+*   **Passive Heartbeat Timeout**: A background daemon monitors Redis heartbeat keys every 10 seconds. If a machine remains silent for more than 60 seconds, it is marked as `DOWN`, generating a critical connectivity alert.
+*   **Error Handling and Types**: Resolved compiler warnings by cleaning up Pino logging calls and type-casting caught errors in server lifecycle shutdown hooks.
+
+***
+
+## 4. Frontend Dashboard Highlights
+*   **Monospace SCADA Aesthetic**: Built with a dark, high-contrast monospace scheme using 'JetBrains Mono' for low-light factory environments.
+*   **Status Indicators**: Uses intuitive status codes and breathing box-shadow alerts on `DOWN` machines to highlight critical events.
+*   **Trend Analysis & OEE Classification**: Includes a modal chart displaying Recharts trends for temperature, vibration, and power, with a form to classify downtime reasons.
+*   **API Proxy Routing**: Integrated Nginx routing inside the Docker container to forward `/api` and `/socket.io` websocket traffic to the backend API.
+
+***
+
+## 5. Testing Results
+All unit and integration tests compile cleanly and pass without leaks.
 
 ```bash
 > digital-twin-backend@1.0.0 test
 > jest --runInBand --detectOpenHandles
 
-{"level":40,"time":1779809729753,"pid":27388,"hostname":"NIKHILC","msg":"New Threshold Alert triggered on MACHINE_01: Machine temperature exceeds critical limit of 80°C (Current: 85.5°C)"}
-{"level":40,"time":1779809729762,"pid":27388,"hostname":"NIKHILC","msg":"Lost communication channel on machine [MACHINE_SILENT]. Silence age: 75s."}
-{"level":40,"time":1779809729762,"pid":27388,"hostname":"NIKHILC","msg":"New Threshold Alert triggered on MACHINE_SILENT: Lost communication channel. Heartbeat missing for > 60 seconds."}
 PASS src/tests/digitalTwin.test.ts
   Digital Twin Observability System Tests
     1. Unit Test: Alert Threshold Logic
@@ -76,40 +63,27 @@ Ran all test suites.
 
 ***
 
-## 3. Visual UI & Camera Event Walkthrough
-
-Below are the mockups of the finished dashboard and simulated CCTV vision feeds demonstrating the completed client application.
-
-### 3.1 Digital Twin SCADA Dashboard Interface
+## 6. Screenshots / Demo
+### 6.1 Plant Operator SCADA Workspace
 The plant operator panel runs on a monospace layout with strict contrast styling and accent statuses (Green=Running, Amber=Idle, Red=Down, Blue=Maintenance). DOWN machines trigger a breathing red shadow ring to capture attention.
 
 ![Industrial Twin Dashboard](media/dashboard_screenshot.png)
 
-### 3.2 CCTV Camera Event Violation
+### 6.2 CCTV Camera Event Violation
 Safety CCTV event logs are pushed to the sidebar containing relative timestamps, severity indicators, and root-cause preview images.
 
 ![CCTV Zone Breach](media/cctv_zone_breach.png)
 
 ***
 
-## 4. Repository Professionalization & Polish
+## 7. Deployment Readiness
+*   **Docker Orchestration**: The stack is containerized with Docker Compose (separating Postgres, Redis, Mosquitto, API, and Web Client UI).
+*   **Environment Configuration**: Credentials have been removed from source files and are managed via a `.env` file.
+*   **GitHub Templates**: Added `.github` issue and pull request templates for standard workspace collaboration.
 
-We have made the following repository-level changes to optimize discoverability, SEO, and indexing:
+***
 
-### 4.1 Staged Visual Assets
-- Created a `media/` folder in the root directory to store high-resolution UI walkthrough mockups.
-- Staged `media/dashboard_screenshot.png` and `media/cctv_zone_breach.png` locally in the repository.
-
-### 4.2 Comprehensive Configuration Files
-- Expanded [.gitignore](.gitignore) to cover common Editor configurations (`.vscode`, `.idea`), build outputs, package caches, OS temporary files, and database schemas.
-
-### 4.3 GitHub Automation Templates
-- Created [.github/PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md) for standardized peer review checkmarks.
-- Created [.github/ISSUE_TEMPLATE/bug_report.md](.github/ISSUE_TEMPLATE/bug_report.md) for clean issue tracking.
-- Created [.github/ISSUE_TEMPLATE/feature_request.md](.github/ISSUE_TEMPLATE/feature_request.md) for standard feature proposals.
-
-### 4.4 Recruitment & Recruiter Visibility Polish
-- Added technology shield badges (TypeScript, React, Redis, Postgres, MQTT, Docker, and MIT License).
-- Added an **Engineering Highlights** section explaining key architecture decisions (MQTT QoS levels, Redis caching, write buffering, passive heartbeat timeouts).
-- Documented a full visual Monorepo Directory Tree representation of the workspace.
-- Documented future extension roadmaps (e.g., LSTM Anomaly Telemetry models, Predictive Maintenance forecasting).
+## 8. Future Improvements
+*   **Machine Learning Integration**: Integrate a lightweight LSTM model on telemetry streams to detect anomalies before limits are exceeded.
+*   **Predictive Maintenance**: Predict machine maintenance intervals using cumulative power and vibration wear trends.
+*   **Interactive Floorplan**: Replace grid-based SCADA cells with an SVG-based spatial floor map.
