@@ -134,6 +134,34 @@ describe('Digital Twin Observability System Tests', () => {
       );
       expect(prisma.alert.create).not.toHaveBeenCalled();
     });
+
+    it('should bypass database findFirst check when active alert cache is warm in Redis', async () => {
+      const machineId = 'MACHINE_01';
+      const alertType = 'HIGH_TEMPERATURE';
+      const timestamp = new Date();
+
+      // Pre-seed the active alert in the mock Redis store
+      const cachedAlertId = 'cached-alert-uuid';
+      mockRedisStore[`active_alert:${machineId}:${alertType}`] = cachedAlertId;
+
+      await checkAndTriggerAlert(machineId, alertType, 85.5, {
+        severity: 'HIGH',
+        messageTemplate: 'Machine temperature exceeds critical limit of 80°C (Current: {val}°C)'
+      }, timestamp, true);
+
+      // Verify that database lookup was bypassed
+      expect(prisma.alert.findFirst).not.toHaveBeenCalled();
+
+      // Verify that update was called on the cached alert ID
+      expect(prisma.alert.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: cachedAlertId }
+        })
+      );
+
+      // Verify that create was NOT called
+      expect(prisma.alert.create).not.toHaveBeenCalled();
+    });
   });
 
   describe('2. Integration Test: Ingestion Ingress Flow', () => {
