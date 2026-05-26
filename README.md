@@ -135,7 +135,12 @@ Deploy the entire infrastructure (Mosquitto, Redis, PostgreSQL, the API server, 
    git clone https://github.com/nikhilc1910/cctv-zone-breach-detection.git
    cd cctv-zone-breach-detection
    ```
-2. **Build and start the containers:**
+2. **Configure Environment Variables:**
+   Copy `.env.example` to `.env` and configure appropriate values before running:
+   ```bash
+   cp .env.example .env
+   ```
+3. **Build and start the containers:**
    ```bash
    docker compose up -d --build
    ```
