@@ -9,13 +9,15 @@ export default defineConfig({
     host: true,
     proxy: {
       '/api': {
-        target: 'http://localhost:5000',
-        changeOrigin: true
+        target: 'https://realtime-digital-twin-dashboard-1.onrender.com',
+        changeOrigin: true,
+        secure: true
       },
       '/socket.io': {
-        target: 'http://localhost:5000',
+        target: 'https://realtime-digital-twin-dashboard-1.onrender.com',
         ws: true,
-        changeOrigin: true
+        changeOrigin: true,
+        secure: true
       }
     }
   }
