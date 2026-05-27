@@ -51,7 +51,8 @@ interface LiveDashboardContextProps {
 
 const LiveDashboardContext = createContext<LiveDashboardContextProps | undefined>(undefined);
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || '/api';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://realtime-digital-twin-dashboard-1.onrender.com';
+const API_BASE_URL = `${BACKEND_URL}/api`;
 
 export const LiveDashboardProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [machines, setMachines] = useState<MachineState[]>([]);
@@ -74,8 +75,9 @@ export const LiveDashboardProvider: React.FC<{ children: React.ReactNode }> = ({
     fetchInitialAlerts();
 
     // Connect to WebSocket Server
-    const socketInstance = io(import.meta.env.VITE_WS_URL || '/', {
-      path: '/socket.io'
+    const socketInstance = io(BACKEND_URL, {
+      path: '/socket.io',
+      transports: ['websocket', 'polling']
     });
     setSocket(socketInstance);
 

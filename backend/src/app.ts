@@ -16,7 +16,7 @@ const server = http.createServer(app);
 // Middlewares
 app.use(cors({
   origin: config.nodeEnv === 'production'
-    ? (process.env.ALLOWED_ORIGIN || 'http://localhost:3000')
+    ? (process.env.ALLOWED_ORIGIN || 'https://realtime-digital-twin-dashboard.onrender.com')
     : '*',
   methods: ['GET', 'POST'],
   allowedHeaders: ['Content-Type', 'Authorization']

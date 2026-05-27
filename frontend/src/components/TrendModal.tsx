@@ -27,7 +27,8 @@ interface DowntimeRecord {
   source: string;
 }
 
-const API_BASE_URL = '/api';
+const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'https://realtime-digital-twin-dashboard-1.onrender.com';
+const API_BASE_URL = `${BACKEND_URL}/api`;
 
 const DOWNTIME_REASONS = [
   'Mechanical Failure',

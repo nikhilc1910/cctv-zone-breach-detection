@@ -12,7 +12,7 @@ export function setupWebsockets(server: HttpServer) {
   const io = new Server(server, {
     cors: {
       origin: config.nodeEnv === 'production'
-        ? (process.env.ALLOWED_ORIGIN || 'http://localhost:3000')
+        ? (process.env.ALLOWED_ORIGIN || 'https://realtime-digital-twin-dashboard.onrender.com')
         : '*',
       methods: ['GET', 'POST']
     }
