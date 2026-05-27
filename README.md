@@ -8,6 +8,13 @@
 [![Docker](https://img.shields.io/badge/Docker-2496ED?style=flat-square&logo=docker&logoColor=white)](https://www.docker.com/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=flat-square)](LICENSE)
 [![Build Status](https://img.shields.io/badge/Build-Passing-brightgreen?style=flat-square)](#-testing-results)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Render-46E3B7?style=flat-square&logo=render&logoColor=white)](https://realtime-digital-twin-dashboard.onrender.com)
+
+## 🌐 Live Demo
+
+> **[https://realtime-digital-twin-dashboard.onrender.com](https://realtime-digital-twin-dashboard.onrender.com)**
+>
+> ⚠️ Hosted on Render's free tier — the backend may take ~30 seconds to wake up on first load. Telemetry data streams live once connected.
 
 A virtual representation (Digital Twin) of a factory floor that processes 1Hz machine telemetry, catches CCTV computer vision safety alerts, and tracks machine downtime on a live WebSockets-powered React workspace.
 
